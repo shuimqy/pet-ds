@@ -4,7 +4,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QPoint,Signal,QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QPixmap,QContextMenuEvent, QMouseEvent, QPaintEvent, QPainter, QAction
-
+from AI import QA
+from transitions import State,Machine
+import time
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -20,12 +22,13 @@ class MainWindow(QWidget):
         self.showFullScreen()
 
         # 创建桌宠标签
-        self.img_label = Pet(self)
-        self.img_label.show()
+        self.pat = Pet(self)
+        self.pat.show()
 
 class Pet(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.machine_init()
         self.img_main = QPixmap('img/shime1.png')
         self.setFixedSize(self.img_main.width(), self.img_main.height())
         self.pressedpos = QPoint()
@@ -36,6 +39,43 @@ class Pet(QLabel):
         )
         #对话实例
         self.dialog=None
+        # 添加定时器
+         # 状态控制相关
+        self.idle_timer = QTimer(self)
+        self.idle_timer.timeout.connect(self._on_idle)
+        self.reset_state_timer()
+
+    def reset_state_timer(self):
+        """ 重置无操作计时器 """
+        self.idle_timer.stop()
+        if self.state != "busy":
+            self.to_busy()  # 切换到忙碌状态
+        self.idle_timer.start(5000)  # 10秒无操作触发
+
+    def _on_idle(self):
+        """ 无操作超时处理 """
+        self.to_free()  # 切换回空闲状态
+        self.idle_timer.stop()
+    # ==================== 状态机相关 ====================
+    def machine_init(self):
+        # 定义状态
+        states = [
+            State(name='busy', on_enter=self._on_enter_busy),
+            State(name='free', on_enter=self._on_enter_free)
+        ]
+
+        self.machine=Machine(model=self,states=states,initial=states[1])
+        self.machine.add_transition(trigger='to_free', source='busy', dest='free')
+        self.machine.add_transition(trigger='to_busy', source='free', dest='busy')
+    
+    def _on_enter_busy(self):
+        print("进入忙碌状态")
+        # 可以在这里停止空闲动画
+
+    def _on_enter_free(self):
+        print("进入空闲状态")
+        # 可以在这里启动自动行为
+    
     # ==================== 右键菜单逻辑 ====================
     def contextMenuEvent(self, event: QContextMenuEvent):
         """ 右键点击时弹出菜单 """
@@ -73,16 +113,17 @@ class Pet(QLabel):
     def on_change_face(self):
         """ 切换表情 """
         # 示例：切换图片
-        self.img_main.load('img/shime3.png') 
+        self.img_main.load('img/shime3.png')
+        self.reset_state_timer() 
         self.update()
 
     def on_show_info(self):
         """ 显示关于信息 """
+        self.reset_state_timer() 
         print("这是一个桌面宠物程序")
-    def on_dialog(self):
-        pass
 
     def mousePressEvent(self, ev: QMouseEvent):
+        self.reset_state_timer() 
         if ev.button() == Qt.MouseButton.LeftButton:
             self.img_main.load('img/shime2.png')
             self.update()
@@ -90,18 +131,22 @@ class Pet(QLabel):
         if self.dialog != None:
             self.dialog.close()
     def mouseMoveEvent(self, ev: QMouseEvent):
+        self.reset_state_timer() 
         new_pos = self.pos() + ev.position().toPoint() - self.pressedpos
         self.move(new_pos)
 
     def mouseReleaseEvent(self, ev: QMouseEvent):
+        self.reset_state_timer() 
         self.img_main.load('img/shime1.png')
         self.update()
 
     def paintEvent(self, ev: QPaintEvent):
+        self.reset_state_timer() 
         painter = QPainter(self)
         painter.drawPixmap(self.rect(), self.img_main)
     
     def mouseDoubleClickEvent(self, event):
+        self.reset_state_timer() 
         if self.dialog != None:
             self.dialog.close()
 
@@ -113,13 +158,16 @@ class Pet(QLabel):
 
 
     def _handle_message(self, msg: str):
+        self.reset_state_timer() 
         """ 处理用户输入的消息 """
         print(f"收到消息: {msg}")
-        reply=msg
+        ai=QA()
+        reply=ai.Answer(msg)
         # 显示气泡
         self.show_bubble(reply)
 
     def show_bubble(self, text: str):
+        self.reset_state_timer() 
         """ 显示消息气泡 """
         # 关闭旧气泡（如果存在）
         if hasattr(self, 'bubble') and self.bubble:
