@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QWidget, QApplication, QLabel,
     QMenu, QGraphicsOpacityEffect, QHBoxLayout, QPushButton,QDialog,QVBoxLayout,QLineEdit
 )
-from PySide6.QtCore import Qt, QPoint,Signal,QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import QObject,QThreadPool,QRunnable,Slot,Qt, QPoint,Signal,QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QPixmap,QContextMenuEvent, QMouseEvent, QPaintEvent, QPainter, QAction
 from AI import QA
 from transitions import State,Machine
@@ -44,7 +44,52 @@ class Pet(QLabel):
         self.idle_timer = QTimer(self)
         self.idle_timer.timeout.connect(self._on_idle)
         self.reset_state_timer()
+        # 调用ai异步处理初始化函数
+        self._init_async_ai()
+    def _init_async_ai(self):
+        """ 初始化异步 AI 处理 """
+        self.thread_pool = QThreadPool.globalInstance()  # 获取全局线程池
+        self.thread_pool.setMaxThreadCount(2)  # 最多同时处理2个请求
 
+        # 初始化加载气泡
+        self.loading_bubble = None
+
+    def _handle_message(self, msg: str):
+        """ 非阻塞处理消息 """
+        self.reset_state_timer()
+        print(f"收到消息: {msg}")
+        
+        # 显示加载动画
+        self._show_loading()
+        
+        # 创建并启动工作线程
+        worker = AIWorker(msg)
+        worker.signals.finished.connect(self._on_ai_reply)
+        worker.signals.error.connect(self._on_ai_error)
+        self.thread_pool.start(worker)
+
+    def _show_loading(self):
+        """ 显示加载中的气泡 """
+        if self.loading_bubble is None:
+            self.loading_bubble = ChatBubble("思考中...", self.parentWidget(), self.pos())
+            self.loading_bubble.show()
+
+    def _hide_loading(self):
+        """ 隐藏加载动画 """
+        if self.loading_bubble:
+            self.loading_bubble.close()
+            self.loading_bubble = None
+
+    def _on_ai_reply(self, result: str):
+        """ 成功收到 AI 回复 """
+        self._hide_loading()
+        self.show_bubble(result)
+
+    def _on_ai_error(self, error_msg: str):
+        """ 处理 AI 错误 """
+        self._hide_loading()
+        self.show_bubble(f"❌ {error_msg}")
+# ==================== 状态机相关 ====================
     def reset_state_timer(self):
         """ 重置无操作计时器 """
         self.idle_timer.stop()
@@ -56,7 +101,7 @@ class Pet(QLabel):
         """ 无操作超时处理 """
         self.to_free()  # 切换回空闲状态
         self.idle_timer.stop()
-    # ==================== 状态机相关 ====================
+    
     def machine_init(self):
         # 定义状态
         states = [
@@ -156,16 +201,6 @@ class Pet(QLabel):
         self.dialog.message_sent.connect(self._handle_message)
         self.dialog.show()
 
-
-    def _handle_message(self, msg: str):
-        self.reset_state_timer() 
-        """ 处理用户输入的消息 """
-        print(f"收到消息: {msg}")
-        ai=QA()
-        reply=ai.Answer(msg)
-        # 显示气泡
-        self.show_bubble(reply)
-
     def show_bubble(self, text: str):
         self.reset_state_timer() 
         """ 显示消息气泡 """
@@ -176,6 +211,27 @@ class Pet(QLabel):
         # 创建新气泡
         self.bubble = ChatBubble(text, self.parentWidget(), self.pos())
         self.bubble.show()
+
+# ai处理异步线程相关
+# 仅继承Qobject类定义信号
+class AIWorkerSignals(QObject):
+    finished = Signal(str)  # 成功信号
+    error = Signal(str)     # 错误信号
+
+class AIWorker(QRunnable):
+    def __init__(self, message: str):
+        super().__init__()
+        self.message = message
+        self.signals=AIWorkerSignals()
+
+    @Slot()
+    def run(self):
+        try:
+            ai = QA()
+            result = ai.Answer(self.message)
+            self.signals.finished.emit(result)
+        except Exception as e:
+            self.signals.error.emit(f"AI 处理失败: {str(e)}")
 
 class ChatDialog(QDialog):
 # 定义信号用于传递输入内容
@@ -340,7 +396,7 @@ class ChatBubble(QLabel):
 
         # 淡出定时器（3秒后开始淡出）
         self.timer = QTimer(self)
-        self.timer.singleShot(2000, self.fade_out)
+        self.timer.singleShot(5000, self.fade_out)
 
     def fade_out(self):
         """ 优雅的淡出动画 """
