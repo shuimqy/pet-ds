@@ -1,5 +1,7 @@
 import requests
 import json
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QWidget
 class QA:
     url = "https://spark-api-open.xf-yun.com/v1/chat/completions"
     header = {
@@ -15,6 +17,8 @@ class QA:
             ],
             "stream": True
         }
+    def __init__(self):
+        self.msg_signal=Msg_signal()
     # 流式响应解析示例
     def Answer(self,Q):
         self.data["messages"][0]["content"]=Q
@@ -22,11 +26,11 @@ class QA:
         response.encoding = "utf-8"
         str_all=""
         for line in response.iter_lines(decode_unicode="utf-8"):
-            # rint(line)
             if 'content' in line:
-                # print(json.loads(line[6:])["choices"][0]["delta"]["content"])
-                str_all+=json.loads(line[6:])["choices"][0]["delta"]["content"]
-        # print(str)
-        return str_all
-# Tmp=QA()
-# print(Tmp.Answer("hello"))
+                self.msg_signal.new_msg.emit(json.loads(line[6:])["choices"][0]["delta"]["content"])
+        self.msg_signal.finished_msg.emit()
+
+class Msg_signal(QWidget):
+    # 消息气泡更新相关信号
+    new_msg=Signal(str)
+    finished_msg=Signal()

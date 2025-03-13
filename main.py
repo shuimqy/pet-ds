@@ -1,12 +1,35 @@
 from PySide6.QtWidgets import (
     QWidget, QApplication, QLabel,
-    QMenu, QGraphicsOpacityEffect, QHBoxLayout, QPushButton,QDialog,QVBoxLayout,QLineEdit
+    QMenu, QGraphicsOpacityEffect, QPushButton,QDialog,QVBoxLayout,QLineEdit
 )
-from PySide6.QtCore import QObject,QThreadPool,QRunnable,Slot,Qt, QPoint,Signal,QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import QSettings,QObject,QThreadPool,QRunnable,Slot,Qt, QPoint,Signal,QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QPixmap,QContextMenuEvent, QMouseEvent, QPaintEvent, QPainter, QAction
 from AI import QA
 from transitions import State,Machine
-import time
+
+def AccPetPos(pet_pos:QPoint,Q:QWidget):
+     if pet_pos:
+            screen = QApplication.primaryScreen().availableGeometry()
+            
+            # 水平定位：优先左侧显示
+            left = pet_pos.x() - Q.width() 
+            right = pet_pos.x() + 100
+            
+            if left > 20:  # 左侧空间足够
+                x = left
+            elif screen.width() - right > 20:  # 右侧空间足够
+                x = right
+            else:  # 两侧都不够时居中
+                x = (screen.width() - Q.width()) // 2
+                
+            # 垂直定位：居中于桌宠形象
+            y = pet_pos.y() - Q.height() // 2
+            
+            # 垂直边界保护
+            y = max(20, min(y, screen.height() - Q.height() - 20))
+            
+            return(QPoint(x,y))
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -28,7 +51,10 @@ class MainWindow(QWidget):
 class Pet(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        # 初始化状态机
         self.machine_init()
+
         self.img_main = QPixmap('img/shime1.png')
         self.setFixedSize(self.img_main.width(), self.img_main.height())
         self.pressedpos = QPoint()
@@ -137,19 +163,23 @@ class Pet(QLabel):
         action_quit = QAction("退出", self)
         action_change_face = QAction("切换表情", self)
         action_info = QAction("关于", self)
-        action_dialog=QAction("对话",self)        
+        action_dialog=QAction("对话",self)
+        action_set=QAction("设置",self)        
         # 绑定槽函数
         action_quit.triggered.connect(self.on_quit)
         action_change_face.triggered.connect(self.on_change_face)
         action_info.triggered.connect(self.on_show_info)
         action_dialog.triggered.connect(self.on_dialog)
+        action_set.triggered.connect(self.on_set)
         # 将选项添加到菜单
         menu.addAction(action_quit)
         menu.addAction(action_change_face)
         menu.addAction(action_info)
         menu.addAction(action_dialog)
+        menu.addAction(action_set)
         # 在形象旁显示菜单
-        menu.exec(QPoint(self.pos().x()*0.92,self.pos().y())*1.05)
+        point_tem=AccPetPos(self.pos(),self)
+        menu.exec(QPoint(point_tem.x()+50,point_tem.y()+80))
 
     def on_quit(self):
         """ 退出程序 """
@@ -166,6 +196,9 @@ class Pet(QLabel):
         """ 显示关于信息 """
         self.reset_state_timer() 
         print("这是一个桌面宠物程序")
+
+    def on_set(self):
+        pass
 
     def mousePressEvent(self, ev: QMouseEvent):
         self.reset_state_timer() 
@@ -248,12 +281,7 @@ class ChatDialog(QDialog):
         self.setFixedSize(200, 120)
         
         # 根据桌宠位置定位
-        if pet_pos:
-            self.move(
-            pet_pos.x() - 200,
-            pet_pos.y()
-        )
-        
+        self.move(AccPetPos(pet_pos,self))
         # 样式表
         self.setStyleSheet("""
             QDialog {
@@ -363,27 +391,8 @@ class ChatBubble(QLabel):
         self.setMaximumWidth(300)
         self.adjustSize()
         # 定位
-        if pet_pos:
-            screen = QApplication.primaryScreen().availableGeometry()
-            
-            # 水平定位：优先左侧显示
-            bubble_left = pet_pos.x() - self.width() - 30
-            bubble_right = pet_pos.x() + 100
-            
-            if bubble_left > 20:  # 左侧空间足够
-                x = bubble_left
-            elif screen.width() - bubble_right > 20:  # 右侧空间足够
-                x = bubble_right
-            else:  # 两侧都不够时居中
-                x = (screen.width() - self.width()) // 2
-                
-            # 垂直定位：居中于桌宠形象
-            y = pet_pos.y() - self.height() // 2
-            
-            # 垂直边界保护
-            y = max(20, min(y, screen.height() - self.height() - 20))
-            
-            self.move(int(x), int(y))
+
+        self.move(AccPetPos(pet_pos,self))
 
         # 淡入动画
         self.opacity_effect = QGraphicsOpacityEffect(self)
