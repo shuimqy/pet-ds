@@ -30,6 +30,106 @@ def AccPetPos(pet_pos:QPoint,Q:QWidget):
             
             return(QPoint(x,y))
 
+# 回答显示气泡类
+class ChatBubble(QLabel):
+    def __init__(self, text: str, parent=None, pet_pos: QPoint = None):
+        super().__init__(parent)
+        self.pet_pos=pet_pos
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.Tool
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        #美化
+        self.setStyleSheet("""
+            QLabel {
+                /* 背景颜色 (0.95透明度) */
+                background: rgba(23, 32, 56, 0.95);
+                
+                /* 现代渐变边框 */
+                border: 2px solid qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 rgba(82, 130, 164, 1),
+                    stop:1 rgba(122, 180, 220, 1)
+                );
+                
+                /* 圆角效果 */
+                border-radius: 12px;
+                
+                /* 内部填充 */
+                padding: 12px 16px;
+                
+                /* 字体样式 */
+                color: #e0f0ff;
+                font-family: "微软雅黑";
+                font-size: 14px;
+                font-weight: 500;
+                
+                /* 控件阴影 */
+                margin: 8px;
+            }
+            
+            /* 伪元素实现发光效果 */
+            QLabel::before {
+                content: "";
+                position: absolute;
+                top: -6px;
+                left: 20px;
+                width: 12px;
+                height: 12px;
+                background: rgba(82, 130, 164, 0.8);
+                transform: rotate(45deg);
+                z-index: -1;
+            }
+        """)
+
+        self.setText(text)
+        self.setWordWrap(True)  # 启用自动换行
+        self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        
+        # 根据内容调整尺寸 (最大宽度300px)
+        self.setMaximumWidth(300)
+        self.adjustSize()
+        # 定位
+        self.move(AccPetPos(self.pet_pos,self))
+
+        # 淡入动画
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
+        self.opacity_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.opacity_anim.setDuration(300)
+        self.opacity_anim.setStartValue(0.0)
+        self.opacity_anim.setEndValue(1.0)
+        self.opacity_anim.start()
+
+        # 淡出定时器（3秒后开始淡出）
+        self.timer = QTimer(self)
+        self.timer.singleShot(5000, self.fade_out)
+
+    def move_bubble(self,new_pos:QPoint):
+        self.move(AccPetPos(new_pos,self))
+
+    # 追加文本信息
+    def text_append(self,new_text:str):
+        # 计时器暂停，重新开始计时
+        self.timer.stop()
+        tmp=self.text()+new_text
+        self.setText(tmp)
+        print("调用文本追加")
+        self.adjustSize()
+        self.move(AccPetPos(self.pet_pos,self))
+        self.timer.start(5000)
+    def fade_out(self):
+        """ 优雅的淡出动画 """
+        self.opacity_anim.setDuration(800)
+        self.opacity_anim.setStartValue(1.0)
+        self.opacity_anim.setEndValue(0.0)
+        self.opacity_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+        self.opacity_anim.finished.connect(self.close)
+        self.opacity_anim.start()
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -79,6 +179,7 @@ class Pet(QLabel):
 
         # 初始化加载气泡
         self.loading_bubble = None
+        self.bubble=None
 
     def _handle_message(self, msg: str):
         """ 非阻塞处理消息 """
@@ -89,10 +190,15 @@ class Pet(QLabel):
         self._show_loading()
         
         # 创建并启动工作线程
-        worker = AIWorker(msg)
-        worker.signals.finished.connect(self._on_ai_reply)
-        worker.signals.error.connect(self._on_ai_error)
+        worker = AIWorker(msg,self)
+        # worker.signals.finished.connect(self._on_ai_reply)
+        # worker.signals.error.connect(self._on_ai_error)
+        worker.ai.msg_signal.ready_send.connect(self._on_ai_reply)
+        worker.ai.msg_signal.new_msg.connect(self.bubble_text_append)
         self.thread_pool.start(worker)
+
+    def bubble_text_append(self,text:str):
+        self.bubble.text_append(text)
 
     def _show_loading(self):
         """ 显示加载中的气泡 """
@@ -106,7 +212,7 @@ class Pet(QLabel):
             self.loading_bubble.close()
             self.loading_bubble = None
 
-    def _on_ai_reply(self, result: str):
+    def _on_ai_reply(self, result: str=""):
         """ 成功收到 AI 回复 """
         self._hide_loading()
         self.show_bubble(result)
@@ -212,7 +318,8 @@ class Pet(QLabel):
         self.reset_state_timer() 
         new_pos = self.pos() + ev.position().toPoint() - self.pressedpos
         self.move(new_pos)
-
+        if self.bubble!=None:
+            self.bubble.move_bubble(new_pos)
     def mouseReleaseEvent(self, ev: QMouseEvent):
         self.reset_state_timer() 
         self.img_main.load('img/shime1.png')
@@ -238,31 +345,31 @@ class Pet(QLabel):
         self.reset_state_timer() 
         """ 显示消息气泡 """
         # 关闭旧气泡（如果存在）
-        if hasattr(self, 'bubble') and self.bubble:
+        if self.bubble:
             self.bubble.close()
-        
+            self.bubble=None
         # 创建新气泡
         self.bubble = ChatBubble(text, self.parentWidget(), self.pos())
         self.bubble.show()
 
 # ai处理异步线程相关
-# 仅继承Qobject类定义信号
-class AIWorkerSignals(QObject):
-    finished = Signal(str)  # 成功信号
-    error = Signal(str)     # 错误信号
+# # 仅继承Qobject类定义信号
+# class AIWorkerSignals(QObject):
+#     finished = Signal(str)  # 成功信号
+#     error = Signal(str)     # 错误信号
 
 class AIWorker(QRunnable):
-    def __init__(self, message: str):
+    def __init__(self, message: str,pet:Pet):
         super().__init__()
         self.message = message
-        self.signals=AIWorkerSignals()
-
+        # self.signals=AIWorkerSignals()
+        self.ai = QA()
     @Slot()
     def run(self):
         try:
-            ai = QA()
-            result = ai.Answer(self.message)
-            self.signals.finished.emit(result)
+            
+            self.ai.Answer(self.message)
+            # self.signals.finished.emit(result)
         except Exception as e:
             self.signals.error.emit(f"AI 处理失败: {str(e)}")
 
@@ -328,93 +435,6 @@ class ChatDialog(QDialog):
             # 发出信号
             self.message_sent.emit(text)
             self.close()
-
-# 回答显示气泡类
-class ChatBubble(QLabel):
-    def __init__(self, text: str, parent=None, pet_pos: QPoint = None):
-        super().__init__(parent)
-        self.setWindowFlags(
-            Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        
-        #美化
-        self.setStyleSheet("""
-            QLabel {
-                /* 背景颜色 (0.95透明度) */
-                background: rgba(23, 32, 56, 0.95);
-                
-                /* 现代渐变边框 */
-                border: 2px solid qlineargradient(
-                    x1:0, y1:0, x2:1, y2:0,
-                    stop:0 rgba(82, 130, 164, 1),
-                    stop:1 rgba(122, 180, 220, 1)
-                );
-                
-                /* 圆角效果 */
-                border-radius: 12px;
-                
-                /* 内部填充 */
-                padding: 12px 16px;
-                
-                /* 字体样式 */
-                color: #e0f0ff;
-                font-family: "微软雅黑";
-                font-size: 14px;
-                font-weight: 500;
-                
-                /* 控件阴影 */
-                margin: 8px;
-            }
-            
-            /* 伪元素实现发光效果 */
-            QLabel::before {
-                content: "";
-                position: absolute;
-                top: -6px;
-                left: 20px;
-                width: 12px;
-                height: 12px;
-                background: rgba(82, 130, 164, 0.8);
-                transform: rotate(45deg);
-                z-index: -1;
-            }
-        """)
-
-        self.setText(text)
-        self.setWordWrap(True)  # 启用自动换行
-        self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        
-        # 根据内容调整尺寸 (最大宽度300px)
-        self.setMaximumWidth(300)
-        self.adjustSize()
-        # 定位
-
-        self.move(AccPetPos(pet_pos,self))
-
-        # 淡入动画
-        self.opacity_effect = QGraphicsOpacityEffect(self)
-        self.setGraphicsEffect(self.opacity_effect)
-        self.opacity_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.opacity_anim.setDuration(300)
-        self.opacity_anim.setStartValue(0.0)
-        self.opacity_anim.setEndValue(1.0)
-        self.opacity_anim.start()
-
-        # 淡出定时器（3秒后开始淡出）
-        self.timer = QTimer(self)
-        self.timer.singleShot(5000, self.fade_out)
-
-    def fade_out(self):
-        """ 优雅的淡出动画 """
-        self.opacity_anim.setDuration(800)
-        self.opacity_anim.setStartValue(1.0)
-        self.opacity_anim.setEndValue(0.0)
-        self.opacity_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
-        self.opacity_anim.finished.connect(self.close)
-        self.opacity_anim.start()
 
 if __name__ == '__main__':
     app = QApplication([])
