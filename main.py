@@ -6,7 +6,8 @@ from PySide6.QtCore import QSettings,QObject,QThreadPool,QRunnable,Slot,Qt, QPoi
 from PySide6.QtGui import QIcon, QPixmap,QContextMenuEvent, QMouseEvent, QPaintEvent, QPainter, QAction
 from AI import QA
 from transitions import State,Machine
-
+# 导入设置界面
+from Ui_untitled import Ui_Form
 def AccPetPos(pet_pos:QPoint,Q:QWidget):
      if pet_pos:
             screen = QApplication.primaryScreen().availableGeometry()
@@ -130,6 +131,12 @@ class ChatBubble(QLabel):
         self.opacity_anim.finished.connect(self.close)
         self.opacity_anim.start()
 
+# 定义全局Qsettings实例
+# 初始化相关(Qsettings)
+
+Q_set=QSettings("config.ini",QSettings.IniFormat)
+# Q_set.setValue("a",100)
+# Q_set.setValue("MainWindow/is_on_top",True)
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -137,21 +144,45 @@ class MainWindow(QWidget):
 
     def init_ui(self):
         # 设置窗口属性（无边框、透明、置顶）
-        self.setWindowFlags(
+        if Q_set.value("MainWindow/is_on_top",type=bool):
+            self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint
         )
+        else:
+            self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+        )
+        
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.showFullScreen()
-
         # 创建桌宠标签
         self.pat = Pet(self)
         self.pat.show()
+        # 
+    def show_set_ui(self):
+        self.set_ui=SetUi()
+        self.set_ui.show()
+
+class SetUi(QWidget,Ui_Form):
+    def __init__(self,parent=None):
+        super().__init__(parent)
+        self.setupUi(self)
+        self.on_top_checkBox.toggled.connect(self.on_top_checkBox_changed)
+
+        self.on_top_checkBox.setChecked(Q_set.value("MainWindow/is_on_top",type=bool))
+
+    def on_top_checkBox_changed(self):
+        if self.on_top_checkBox.isChecked() :
+            Q_set.setValue("MainWindow/is_on_top",True)
+        else :
+            Q_set.setValue("MainWindow/is_on_top",False)
+
 
 class Pet(QLabel):
-    def __init__(self, parent=None):
+    def __init__(self, parent:MainWindow=None):
         super().__init__(parent)
-
+        self.father=parent
         # 初始化状态机
         self.machine_init()
 
@@ -304,7 +335,7 @@ class Pet(QLabel):
         print("这是一个桌面宠物程序")
 
     def on_set(self):
-        pass
+        self.father.show_set_ui()
 
     def mousePressEvent(self, ev: QMouseEvent):
         self.reset_state_timer() 
