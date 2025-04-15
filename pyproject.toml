@@ -1,0 +1,18 @@
+[project]
+name = "pet-ds"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "llglh",email = "2633830336@qq.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6.2",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
