@@ -9,7 +9,7 @@ def completions(content: str):
     response = requests.post(
         url=url,
         headers={
-            "Authorization": "Bearer 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",
+            "Authorization": "Bearer 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",
             "Content-Type": "application/json",
             # "HTTP-Referer": "<YOUR_SITE_URL>",  # Optional. Site URL for rankings on openrouter.ai.
             # "X-Title": "<YOUR_SITE_NAME>",  # Optional. Site title for rankings on openrouter.ai.

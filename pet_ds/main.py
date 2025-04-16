@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
     QLineEdit,
+    QHBoxLayout,
+    QCheckBox,
 )
 from PySide6.QtCore import (
     QSettings,
@@ -33,7 +35,7 @@ from AI import QA
 from transitions import State, Machine
 
 # 导入设置界面
-from Ui_untitled import Ui_Form
+from settings import Ui_Form
 
 
 def AccPetPos(pet_pos: QPoint, Q: QWidget):
@@ -167,6 +169,7 @@ class ChatBubble(QLabel):
 
 Q_set = QSettings("config.ini", QSettings.IniFormat)
 img_dir = "D:/junior-work/junior/pet-ds/img"
+# Q_set.setValue("ChatDialog/init_check_mcp", False)
 
 
 # Q_set.setValue("a",100)
@@ -245,7 +248,7 @@ class Pet(QLabel):
         self.loading_bubble = None
         self.bubble = None
 
-    def _handle_message(self, msg: str):
+    def _handle_message(self, msg: str, mcp_isChecked: bool):
         """非阻塞处理消息"""
         self.reset_state_timer()
         print(f"收到消息: {msg}")
@@ -254,7 +257,7 @@ class Pet(QLabel):
         self._show_loading()
 
         # 创建并启动工作线程
-        worker = AIWorker(msg, self)
+        worker = AIWorker(msg, mcp_isChecked, self)
         # worker.signals.finished.connect(self._on_ai_reply)
         # worker.signals.error.connect(self._on_ai_error)
         worker.ai.msg_signal.ready_send.connect(self._on_ai_reply)
@@ -431,16 +434,17 @@ class Pet(QLabel):
 
 
 class AIWorker(QRunnable):
-    def __init__(self, message: str, pet: Pet):
+    def __init__(self, message: str, mcp_isChecked: bool, pet: Pet):
         super().__init__()
         self.message = message
+        self.mcp_isChecked = mcp_isChecked
         # self.signals=AIWorkerSignals()
         self.ai = QA()
 
     @Slot()
     def run(self):
         try:
-            self.ai.Answer(self.message)
+            self.ai.Answer(self.message, self.mcp_isChecked)
             # self.signals.finished.emit(result)
         except Exception as e:
             self.signals.error.emit(f"AI 处理失败: {str(e)}")
@@ -448,7 +452,7 @@ class AIWorker(QRunnable):
 
 class ChatDialog(QDialog):
     # 定义信号用于传递输入内容
-    message_sent = Signal(str)
+    message_sent = Signal(str, bool)
 
     def __init__(self, parent=None, pet_pos: QPoint = None):
         super().__init__(parent)
@@ -484,30 +488,43 @@ class ChatDialog(QDialog):
                 border-radius: 4px;
                 min-width: 60px;
             }
-            QPushButton:hover {
-                background: rgba(82, 130, 164, 1);
+            QCheckBox {
+                background: rgba(75, 120, 154, 0.5);
             }
         """)
 
         # 布局和控件
-        layout = QVBoxLayout()
+        layoutV = QVBoxLayout()
+        layoutH = QHBoxLayout()
         self.input_box = QLineEdit()
         self.input_box.setPlaceholderText("输入消息...")
         self.btn_send = QPushButton("发送")
-
-        layout.addWidget(self.input_box)
-        layout.addWidget(self.btn_send)
-        self.setLayout(layout)
+        self.check_mcp = QCheckBox()
+        self.check_mcp.setToolTip("勾选启动mcp")
+        self.check_mcp_init()
+        layoutH.addWidget(self.input_box)
+        layoutH.addWidget(self.check_mcp)
+        layoutV.addLayout(layoutH)
+        layoutV.addWidget(self.btn_send)
+        self.setLayout(layoutV)
 
         # 连接信号
         self.btn_send.clicked.connect(self._on_send)
+        self.check_mcp.checkStateChanged.connect(self.check_mcp_update)
 
     def _on_send(self):
         text = self.input_box.text()
         if text:
             # 发出信号
-            self.message_sent.emit(text)
+            self.message_sent.emit(text, self.check_mcp.isChecked())
             self.close()
+
+    def check_mcp_init(self):
+        self.check_mcp.setChecked(Q_set.value("ChatDialog/init_check_mcp", type=bool))
+
+    def check_mcp_update(self):
+        Q_set.setValue("ChatDialog/init_check_mcp", self.check_mcp.isChecked())
+        Q_set.sync()
 
 
 if __name__ == "__main__":
