@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import (
     QSettings,
-    QObject,
     QThreadPool,
     QRunnable,
     Slot,
@@ -23,7 +22,6 @@ from PySide6.QtCore import (
     QEasingCurve,
 )
 from PySide6.QtGui import (
-    QIcon,
     QPixmap,
     QContextMenuEvent,
     QMouseEvent,
@@ -168,6 +166,7 @@ class ChatBubble(QLabel):
 # 初始化相关(Qsettings)
 
 Q_set = QSettings("config.ini", QSettings.IniFormat)
+img_dir = "D:/junior-work/junior/pet-ds/img"
 
 
 # Q_set.setValue("a",100)
@@ -220,7 +219,7 @@ class Pet(QLabel):
         # 初始化状态机
         self.machine_init()
 
-        self.img_main = QPixmap("img/shime1.png")
+        self.img_main = QPixmap(f"{img_dir}/shime1.png")
         self.setFixedSize(self.img_main.width(), self.img_main.height())
         self.pressedpos = QPoint()
         # 初始位置：右下角
@@ -338,6 +337,7 @@ class Pet(QLabel):
         action_change_face = QAction("切换表情", self)
         action_info = QAction("关于", self)
         action_dialog = QAction("对话", self)
+        # action_mcp=QAction("",self)
         action_set = QAction("设置", self)
         # 绑定槽函数
         action_quit.triggered.connect(self.on_quit)
@@ -362,7 +362,7 @@ class Pet(QLabel):
     def on_change_face(self):
         """切换表情"""
         # 示例：切换图片
-        self.img_main.load("img/shime3.png")
+        self.img_main.load(f"{img_dir}/shime3.png")
         self.reset_state_timer()
         self.update()
 
@@ -377,7 +377,7 @@ class Pet(QLabel):
     def mousePressEvent(self, ev: QMouseEvent):
         self.reset_state_timer()
         if ev.button() == Qt.MouseButton.LeftButton:
-            self.img_main.load("img/shime2.png")
+            self.img_main.load(f"{img_dir}/shime2.png")
             self.update()
             self.pressedpos = ev.position().toPoint()
         if self.dialog != None:
@@ -392,7 +392,7 @@ class Pet(QLabel):
 
     def mouseReleaseEvent(self, ev: QMouseEvent):
         self.reset_state_timer()
-        self.img_main.load("img/shime1.png")
+        self.img_main.load(f"{img_dir}/shime1.png")
         self.update()
 
     def paintEvent(self, ev: QPaintEvent):

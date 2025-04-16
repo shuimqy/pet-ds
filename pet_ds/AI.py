@@ -3,6 +3,7 @@ import json
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
 import time
+import api
 
 
 class QA:
@@ -20,11 +21,12 @@ class QA:
         self.msg_signal = Msg_signal()
 
     # 流式响应解析示例
-    def Answer(self, Q):
-        self.data["messages"][0]["content"] = Q
-        response = requests.post(
-            self.url, headers=self.header, json=self.data, stream=True
-        )
+    def Answer(self, query):
+        self.data["messages"][0]["content"] = query
+        # response = requests.post(
+        #     self.url, headers=self.header, json=self.data, stream=True
+        # )
+        response = api.completions(query)
         response.encoding = "utf-8"
         self.msg_signal.ready_send.emit()
         # time.sleep(5)
