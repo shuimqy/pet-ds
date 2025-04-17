@@ -31,7 +31,7 @@ from PySide6.QtGui import (
     QPainter,
     QAction,
 )
-from AI import QA
+from pet_ds.AI import QA
 from transitions import State, Machine
 
 # 导入设置界面
