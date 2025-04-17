@@ -123,7 +123,7 @@ not
         content = ""
         for line in second_response.iter_lines(decode_unicode="utf-8"):
             if "content" in line:
-                content += json.loads(line[6:])["choices"][0]["delta"]["content"]
+                content = json.loads(line[6:])["choices"][0]["delta"]["content"]
                 yield content
         # data = json.loads(second_response.text.strip())
         # content = data["choices"][0]["message"]["content"]
