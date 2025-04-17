@@ -1,3 +1,4 @@
+import os
 from PySide6.QtWidgets import (
     QWidget,
     QApplication,
@@ -36,6 +37,9 @@ from transitions import State, Machine
 
 # 导入设置界面
 from settings import Ui_Form
+
+# 修改程序当前运行目录为 main.py 所在文件夹
+os.chdir(os.path.dirname(__file__))
 
 
 def AccPetPos(pet_pos: QPoint, Q: QWidget):
@@ -152,7 +156,7 @@ class ChatBubble(QLabel):
         print("调用文本追加")
         self.adjustSize()
         self.move(AccPetPos(self.pet_pos, self))
-        self.timer.start(5000)
+        self.timer.start(10000)
 
     def fade_out(self):
         """优雅的淡出动画"""
@@ -168,7 +172,7 @@ class ChatBubble(QLabel):
 # 初始化相关(Qsettings)
 
 Q_set = QSettings("config.ini", QSettings.IniFormat)
-img_dir = "D:/junior-work/junior/pet-ds/img"
+img_dir = "../img"
 # Q_set.setValue("ChatDialog/init_check_mcp", False)
 
 
@@ -444,7 +448,7 @@ class AIWorker(QRunnable):
     @Slot()
     def run(self):
         try:
-            self.ai.Answer(self.message, self.mcp_isChecked)
+            self.ai.answer(self.message, self.mcp_isChecked)
             # self.signals.finished.emit(result)
         except Exception as e:
             self.signals.error.emit(f"AI 处理失败: {str(e)}")
@@ -527,8 +531,12 @@ class ChatDialog(QDialog):
         Q_set.sync()
 
 
-if __name__ == "__main__":
+def main():
     app = QApplication([])
     pet = MainWindow()
     pet.show()
     app.exec()
+
+
+if __name__ == "__main__":
+    main()

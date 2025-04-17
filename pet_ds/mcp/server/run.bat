@@ -1,1 +1,0 @@
-mcp run weather.py
