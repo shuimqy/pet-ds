@@ -71,6 +71,7 @@ class ChatBubble(QLabel):
     def __init__(self, text: str, parent=None, pet_pos: QPoint = None):
         super().__init__(parent)
         self.pet_pos = pet_pos
+        self.t = 0
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
@@ -142,7 +143,8 @@ class ChatBubble(QLabel):
 
         # 淡出定时器（3秒后开始淡出）
         self.timer = QTimer(self)
-        self.timer.singleShot(5000, self.fade_out)
+        self.timer.timeout.connect(self.fade_out)
+        self.timer.start(10000)  # 开始计时
 
     def move_bubble(self, new_pos: QPoint):
         self.move(AccPetPos(new_pos, self))
@@ -151,11 +153,16 @@ class ChatBubble(QLabel):
     def text_append(self, new_text: str):
         # 计时器暂停，重新开始计时
         self.timer.stop()
+        self.t += 1
+        if self.t > 100:
+            self.t = 0
+            self.setText("")
         tmp = self.text() + new_text
         self.setText(tmp)
         print("调用文本追加")
         self.adjustSize()
         self.move(AccPetPos(self.pet_pos, self))
+        # self.timer.singleShot(10000, self.fade_out)
         self.timer.start(10000)
 
     def fade_out(self):
