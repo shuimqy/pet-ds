@@ -1,31 +1,60 @@
 import requests
 import json
+from pet_ds.config import conf
+
+proxies = (
+    {
+        "http": conf.proxy,
+        "https": conf.proxy,
+    }
+    if conf.proxy
+    else None
+)
 
 
-url = "https://openrouter.ai/api/v1/chat/completions"
-
-
-def completions(content: str):
+def simplechat(content: str, stream: bool = True) -> requests.Response:
     response = requests.post(
-        url=url,
+        url=conf.llm_url,
         headers={
-            "Authorization": "Bearer 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",
+            "Authorization": f"Bearer {conf.api_key}",
             "Content-Type": "application/json",
             # "HTTP-Referer": "<YOUR_SITE_URL>",  # Optional. Site URL for rankings on openrouter.ai.
             # "X-Title": "<YOUR_SITE_NAME>",  # Optional. Site title for rankings on openrouter.ai.
         },
         data=json.dumps(
             {
-                "model": "deepseek/deepseek-chat-v3-0324:free",
+                "model": conf.model,
                 "messages": [
                     {
                         "role": "user",
                         "content": content,
                     }
                 ],
-                "stream": True,
+                "stream": stream,
             }
         ),
+        proxies=proxies,
+    )
+    return response
+
+
+def completions(messages: list[dict], stream: bool = True) -> requests.Response:
+    response = requests.post(
+        url=conf.llm_url,
+        headers={
+            "Authorization": f"Bearer {conf.api_key}",
+            "Content-Type": "application/json",
+            # "HTTP-Referer": "<YOUR_SITE_URL>",  # Optional. Site URL for rankings on openrouter.ai.
+            # "X-Title": "<YOUR_SITE_NAME>",  # Optional. Site title for rankings on openrouter.ai.
+        },
+        data=json.dumps(
+            {
+                "model": conf.model,
+                "messages": messages,
+                "stream": stream,
+            }
+        ),
+        proxies=proxies,
     )
     return response
 

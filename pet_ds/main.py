@@ -1,3 +1,4 @@
+import os
 from PySide6.QtWidgets import (
     QWidget,
     QApplication,
@@ -31,11 +32,14 @@ from PySide6.QtGui import (
     QPainter,
     QAction,
 )
-from AI import QA
+from pet_ds.AI import QA
 from transitions import State, Machine
 
 # 导入设置界面
 from settings import Ui_Form
+
+# 修改程序当前运行目录为 main.py 所在文件夹
+os.chdir(os.path.dirname(__file__))
 
 
 def AccPetPos(pet_pos: QPoint, Q: QWidget):
@@ -67,6 +71,7 @@ class ChatBubble(QLabel):
     def __init__(self, text: str, parent=None, pet_pos: QPoint = None):
         super().__init__(parent)
         self.pet_pos = pet_pos
+        self.t = 0
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
@@ -138,7 +143,8 @@ class ChatBubble(QLabel):
 
         # 淡出定时器（3秒后开始淡出）
         self.timer = QTimer(self)
-        self.timer.singleShot(5000, self.fade_out)
+        self.timer.timeout.connect(self.fade_out)
+        self.timer.start(10000)  # 开始计时
 
     def move_bubble(self, new_pos: QPoint):
         self.move(AccPetPos(new_pos, self))
@@ -147,12 +153,17 @@ class ChatBubble(QLabel):
     def text_append(self, new_text: str):
         # 计时器暂停，重新开始计时
         self.timer.stop()
+        self.t += 1
+        if self.t > 150:
+            self.t = 0
+            self.setText("")
         tmp = self.text() + new_text
         self.setText(tmp)
         print("调用文本追加")
         self.adjustSize()
         self.move(AccPetPos(self.pet_pos, self))
-        self.timer.start(5000)
+        # self.timer.singleShot(10000, self.fade_out)
+        self.timer.start(10000)
 
     def fade_out(self):
         """优雅的淡出动画"""
@@ -168,7 +179,7 @@ class ChatBubble(QLabel):
 # 初始化相关(Qsettings)
 
 Q_set = QSettings("config.ini", QSettings.IniFormat)
-img_dir = "D:/junior-work/junior/pet-ds/img"
+img_dir = "../img"
 # Q_set.setValue("ChatDialog/init_check_mcp", False)
 
 
@@ -286,10 +297,10 @@ class Pet(QLabel):
         self._hide_loading()
         self.show_bubble(result)
 
-    def _on_ai_error(self, error_msg: str):
-        """处理 AI 错误"""
-        self._hide_loading()
-        self.show_bubble(f"❌ {error_msg}")
+    # def _on_ai_error(self, error_msg: str):
+    #     """处理 AI 错误"""
+    #     self._hide_loading()
+    #     self.show_bubble(f"❌ {error_msg}")
 
     # ==================== 状态机相关 ====================
     def reset_state_timer(self):
@@ -444,10 +455,11 @@ class AIWorker(QRunnable):
     @Slot()
     def run(self):
         try:
-            self.ai.Answer(self.message, self.mcp_isChecked)
+            self.ai.answer(self.message, self.mcp_isChecked)
             # self.signals.finished.emit(result)
-        except Exception as e:
-            self.signals.error.emit(f"AI 处理失败: {str(e)}")
+        except Exception:
+            # self.signals.error.emit(f"AI 处理失败: {str(e)}")
+            print("回答失败")
 
 
 class ChatDialog(QDialog):
@@ -527,8 +539,12 @@ class ChatDialog(QDialog):
         Q_set.sync()
 
 
-if __name__ == "__main__":
+def main():
     app = QApplication([])
     pet = MainWindow()
     pet.show()
     app.exec()
+
+
+if __name__ == "__main__":
+    main()
