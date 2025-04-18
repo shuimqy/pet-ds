@@ -2,10 +2,14 @@ import requests
 import json
 from pet_ds.config import conf
 
-proxies = {
-    "http": conf.proxy,
-    "https": conf.proxy,
-}
+proxies = (
+    {
+        "http": conf.proxy,
+        "https": conf.proxy,
+    }
+    if conf.proxy
+    else None
+)
 
 
 def simplechat(content: str, stream: bool = True) -> requests.Response:
