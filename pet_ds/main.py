@@ -154,7 +154,7 @@ class ChatBubble(QLabel):
         # 计时器暂停，重新开始计时
         self.timer.stop()
         self.t += 1
-        if self.t > 100:
+        if self.t > 150:
             self.t = 0
             self.setText("")
         tmp = self.text() + new_text
@@ -297,10 +297,10 @@ class Pet(QLabel):
         self._hide_loading()
         self.show_bubble(result)
 
-    def _on_ai_error(self, error_msg: str):
-        """处理 AI 错误"""
-        self._hide_loading()
-        self.show_bubble(f"❌ {error_msg}")
+    # def _on_ai_error(self, error_msg: str):
+    #     """处理 AI 错误"""
+    #     self._hide_loading()
+    #     self.show_bubble(f"❌ {error_msg}")
 
     # ==================== 状态机相关 ====================
     def reset_state_timer(self):
@@ -457,8 +457,9 @@ class AIWorker(QRunnable):
         try:
             self.ai.answer(self.message, self.mcp_isChecked)
             # self.signals.finished.emit(result)
-        except Exception as e:
-            self.signals.error.emit(f"AI 处理失败: {str(e)}")
+        except Exception:
+            # self.signals.error.emit(f"AI 处理失败: {str(e)}")
+            print("回答失败")
 
 
 class ChatDialog(QDialog):

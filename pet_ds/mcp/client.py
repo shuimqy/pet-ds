@@ -94,6 +94,7 @@ not
             content = data["choices"][0]["message"]["content"]
             tool_call_line = content.strip().split("\n")[-1]  # 最后一行
             final_answer = content[: -len(tool_call_line)]  # 去除最后一行
+            final_answer = ""
             return final_answer, tool_call_line
 
         final_answer, tool_call_line = extract_answer(first_response.text)
