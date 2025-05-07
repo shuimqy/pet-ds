@@ -1,6 +1,10 @@
+<div align="center">
+
 # Pet Chi 桌面萌宠
 
 _✨ MCP(提示词方式)，Qt6 ✨_
+
+</div>
 
 <img src="https://img.shields.io/badge/Python-3.10+-f09?style=flat&logo=Python&logoColor=fc5&labelColor=3776AB" alt="Python">
 <img src="https://img.shields.io/badge/Qt-6-41CD52?style=flat&logo=Qt&logoColor=fff&labelColor=41CD52" alt="Qt">
@@ -79,3 +83,59 @@ class Config(BaseModel):
 ```sh
 run
 ```
+
+## MCP
+
+```mermaid
+flowchart LR
+    subgraph "Your Computer"
+        Host["Host with MCP Client\n(Claude, IDEs, Tools)"]
+        S1["MCP Server A"]
+        S2["MCP Server B"]
+        S3["MCP Server C"]
+        Host <-->|"MCP Protocol"| S1
+        Host <-->|"MCP Protocol"| S2
+        Host <-->|"MCP Protocol"| S3
+        S1 <--> D1[("Local\nData Source A")]
+        S2 <--> D2[("Local\nData Source B")]
+    end
+    subgraph "Internet"
+        S3 <-->|"Web APIs"| D3[("Remote\nService C")]
+    end
+```
+
+本项目时序图（启用 MCP）
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant PetChi_UI as PetChi UI(MCP Client)
+    participant LLM
+    participant MCP_Server
+    participant Tool as Local Tool/Web APIs (e.g. Python Script)
+
+    User->>PetChi_UI: 输入指令（比如“运行统计脚本”）
+    PetChi_UI->>MCP_Server: 获取工具列表
+    MCP_Server-->>PetChi_UI: 返回工具列表
+    PetChi_UI->>LLM: 用户询问 + 工具描述 + 预设提示词
+    LLM-->>PetChi_UI: 返回思考过程，工具调用
+    PetChi_UI-->>User: 显示第一次回答
+    PetChi_UI->>PetChi_UI: 判断是否有工具调用
+    PetChi_UI->>MCP_Server: 调用工具
+    MCP_Server->>Tool: 执行工具
+    Tool-->>MCP_Server: 返回执行结果
+    MCP_Server-->>PetChi_UI: 结果返回
+    PetChi_UI->>LLM: 带上下文的第二次询问
+    LLM-->>PetChi_UI: 最终回答
+    PetChi_UI-->>User: 显示最终回答
+```
+
+## TODO
+
+- [ ] 多 live2d 形象切换
+- [ ] 多 MCP 服务连接
+- [ ] 命令执行许可按钮
+- [ ] 语音输入
+- [ ] 语音输出
+- [ ] 用户预设提示词
+- [ ] 长期记忆

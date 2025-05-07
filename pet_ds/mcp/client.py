@@ -10,9 +10,6 @@ from anthropic import Anthropic
 
 from pet_ds import api
 
-# load_dotenv()  # load environment variables from .env
-from traceback import print_stack
-
 
 class MCPClient:
     def __init__(self):
@@ -94,7 +91,6 @@ not
             content = data["choices"][0]["message"]["content"]
             tool_call_line = content.strip().split("\n")[-1]  # 最后一行
             final_answer = content[: -len(tool_call_line)]  # 去除最后一行
-            final_answer = ""
             return final_answer, tool_call_line
 
         final_answer, tool_call_line = extract_answer(first_response.text)
@@ -159,11 +155,7 @@ not
 async def main():
     client = MCPClient()
     try:
-        server_path = (
-            sys.argv[1]
-            if len(sys.argv) >= 2
-            else "E:\\work\\vscode\\pet-ds\\pet_ds\\mcp\\server\\weather.py"
-        )
+        server_path = sys.argv[1] if len(sys.argv) >= 2 else "server/weather.py"
         await client.connect_to_server(server_path)
         await client.chat_loop()
     finally:
