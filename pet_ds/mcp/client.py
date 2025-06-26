@@ -1,5 +1,6 @@
 import asyncio
 import json
+import platform
 from typing import Optional
 from contextlib import AsyncExitStack
 
@@ -59,10 +60,14 @@ class MCPClient:
             }
             for tool in response.tools
         ]
+        os_name = platform.system()
+
         return (
-            json.dumps(available_tools)
-            + """上面是一个工具列表，可以被调用，其中name表示工具名称，description是工具的功能描述，input_schema是调用工具需要传递的参数。
-请你分析哪些工具对当前回答有帮助，如果要调用工具，请先分析解决问题的步骤，最后在 **最后一行** 用json格式写出工具名称和传递参数，示例如下：
+            f"用户的操作系统：{os_name}\n"
+            + "当前可用的工具列表：\n"
+            + json.dumps(available_tools)
+            + """\n上面是一个工具列表，可以被调用，其中name表示工具名称，description是工具的功能描述，input_schema是调用工具需要传递的参数。
+请你分析哪些工具对当前回答有帮助，如果要调用工具，请先分析解决问题的步骤，最后在 **最后一行** 用json格式写出工具名称和传递参数，示例如下（请注意其中“(回答内容)”代表你回答的正文，不要输出“(回答内容)”这几个字符）：
 (回答内容)
 {"name":"tool_name","args":{"arg_name1":"arg_value1","arg_name12":"arg_value2"}}
 如果你认为不需要调用工具或者没有工具能帮助到当前对话，请在 **最后一行** 写出"not"，如下：
@@ -73,7 +78,7 @@ not
         )
 
     async def process_query(self, query: str):
-        """Process a query using Claude and available tools"""
+        """处理询问"""
         # 1. 第一次调用
         tools_prompt = await self.get_tools_prompt()
         messages = [
@@ -94,7 +99,9 @@ not
             return final_answer, tool_call_line
 
         final_answer, tool_call_line = extract_answer(first_response.text)
-        yield final_answer
+        for c in final_answer:
+            yield c
+        # yield final_answer
         if tool_call_line == "not":  # 不调用工具，直接返回
             return
         # 2. 调用工具
@@ -106,6 +113,8 @@ not
         tool_call_result = await self.session.call_tool(
             tool_call["name"], tool_call["args"]
         )
+        print(tool_call_result)
+        print(tool_call_result.content)
         # 3. 提供上下文给llm，生成二次回答
         messages.append({"role": "assistant", "content": first_response.text})
         messages.append(
