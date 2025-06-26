@@ -9,11 +9,11 @@ class Config(BaseModel):
     # 模型
     model: str = "THUDM/GLM-4-9B-0414"
     # mcp server 路径
-    mcp_server_path: str = "mcp/server/weather.py"
+    mcp_server_list: list[str] = ["mcp/server/weather.py", "mcp/server/cmd.py"]
     # 代理
     proxy: str = "http://127.0.0.1:7890"
     # 日志等级
-    log_level: str = "INFO"
+    log_level: str = "DEBUG"
 
 
 conf = Config()

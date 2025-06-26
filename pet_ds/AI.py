@@ -25,7 +25,8 @@ class QA:
     async def mcp_answer(self, query: str):
         client = MCPClient()
         try:
-            await client.connect_to_server(conf.mcp_server_path)
+            for mcp_server_path in conf.mcp_server_list:
+                await client.connect_to_server(mcp_server_path)
             agenerator = client.process_query(query)
             self.msg_signal.ready_send.emit()
             async for chunk in agenerator:
@@ -40,7 +41,7 @@ class QA:
 
     # 流式响应解析示例
     def answer(self, query, mcp_isChecked: bool):
-        logger.debug(f"{mcp_isChecked: =}")
+        logger.debug(f"{mcp_isChecked = }")
         if mcp_isChecked:
             asyncio.run(self.mcp_answer(query))
             # self.msg_signal.ready_send.emit()

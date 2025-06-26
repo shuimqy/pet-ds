@@ -160,7 +160,7 @@ class ChatBubble(QLabel):
             self.setText("")
         tmp = self.text() + new_text
         self.setText(tmp)
-        logger.info("调用文本追加")
+        logger.debug("调用文本追加")
         self.adjustSize()
         self.move(AccPetPos(self.pet_pos, self))
         # self.timer.singleShot(10000, self.fade_out)

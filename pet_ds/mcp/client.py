@@ -1,13 +1,9 @@
-import asyncio
 import json
 import platform
-from typing import Optional
 from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-
-from anthropic import Anthropic
 
 import api
 from log import logger
@@ -15,17 +11,11 @@ from log import logger
 
 class MCPClient:
     def __init__(self):
-        # Initialize session and client objects
-        self.session: Optional[ClientSession] = None
+        self.sessions: dict[str, ClientSession] = {}
         self.exit_stack = AsyncExitStack()
-        self.anthropic = Anthropic()
 
-    async def connect_to_server(self, server_script_path: str):
-        """Connect to an MCP server
-
-        Args:
-            server_script_path: Path to the server script (.py or .js)
-        """
+    async def connect_to_server(self, server_script_path: str, name: str = None):
+        """Connect to an MCP server with a unique name"""
         is_python = server_script_path.endswith(".py")
         is_js = server_script_path.endswith(".js")
         if not (is_python or is_js):
@@ -33,146 +23,98 @@ class MCPClient:
 
         command = "python" if is_python else "node"
         server_params = StdioServerParameters(
-            command=command, args=[server_script_path], env=None
+            command=command, args=[server_script_path]
         )
 
         stdio_transport = await self.exit_stack.enter_async_context(
             stdio_client(server_params)
         )
-        self.stdio, self.write = stdio_transport
-        self.session = await self.exit_stack.enter_async_context(
-            ClientSession(self.stdio, self.write)
-        )
+        stdio, write = stdio_transport
+        session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
+        await session.initialize()
 
-        await self.session.initialize()
+        if not name:
+            name = server_script_path.split("/")[-1].split(".")[0]
+        self.sessions[name] = session
 
-        # List available tools
-        response = await self.session.list_tools()
+        response = await session.list_tools()
         tools = response.tools
-        logger.info(
-            "已连接到 MCP 服务，工具列表：" + str([tool.name for tool in tools])
-        )
+        logger.info(f"连接到 {name} 服务，工具：{[tool.name for tool in tools]}")
 
     async def get_tools_prompt(self) -> str:
-        response = await self.session.list_tools()
-        available_tools = [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.inputSchema,
-            }
-            for tool in response.tools
-        ]
-        os_name = platform.system()
+        all_tools = []
+        for name, session in self.sessions.items():
+            response = await session.list_tools()
+            for tool in response.tools:
+                all_tools.append(
+                    {
+                        "server": name,
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": tool.inputSchema,
+                    }
+                )
 
+        os_name = platform.system()
         return (
             f"用户的操作系统：{os_name}\n"
-            + "当前可用的工具列表：\n"
-            + json.dumps(available_tools)
-            + """\n上面是一个工具列表，可以被调用，其中name表示工具名称，description是工具的功能描述，input_schema是调用工具需要传递的参数。
-请你分析哪些工具对当前回答有帮助，如果要调用工具，请先分析解决问题的步骤，最后在 **最后一行** 用json格式写出工具名称和传递参数，示例如下：
-{"name":"tool_name","args":{"arg_name1":"arg_value1","arg_name12":"arg_value2"}}
-如果你认为不需要调用工具或者没有工具能帮助到当前对话，请在 **最后一行** 写出"not"，如下：
-not
-请遵循以上要求，回答用户问题：
+            + "当前可用工具列表：\n"
+            + json.dumps(all_tools, indent=2)
+            + """\n每个工具包含 server 字段标识其所属服务。
+请你分析哪些工具对当前回答有帮助，如果要调用工具，请在 **最后一行** 用json格式写出：
+{"server":"server_name","name":"tool_name","args":{"arg_name":"value"}}
+若无需调用工具，请写"not"
 """
         )
 
     async def process_query(self, query: str):
-        """处理询问"""
-        # 1. 第一次调用
         tools_prompt = await self.get_tools_prompt()
-        messages = [
-            {
-                "role": "user",
-                "content": tools_prompt + query,
-            }
-        ]
+        messages = [{"role": "user", "content": tools_prompt + query}]
         first_response = api.completions(messages=messages, stream=False)
         first_response.encoding = "utf-8"
 
         def extract_answer(raw_text: str) -> tuple[str, str]:
             data = json.loads(raw_text.strip())
-            logger.debug(data)
             content = data["choices"][0]["message"]["content"]
-            tool_call_line = content.strip().split("\n")[-1]  # 最后一行
-            final_answer = content[: -len(tool_call_line)]  # 去除最后一行
+            tool_call_line = content.strip().split("\n")[-1]
+            final_answer = content[: -len(tool_call_line)]
             return final_answer, tool_call_line
 
         final_answer, tool_call_line = extract_answer(first_response.text)
+        logger.info(f"{final_answer = }")
+        logger.info(f"{tool_call_line = }")
         for c in final_answer:
             yield c
-        # yield final_answer
-        if tool_call_line == "not":  # 不调用工具，直接返回
+
+        if tool_call_line == "not":
             return
-        # 2. 调用工具
+
         tool_call = json.loads(tool_call_line)
-        # 调用工具
-        tool_call_note = f"调用工具：{tool_call['name']}，参数：{tool_call['args']}"
+        server_name = tool_call["server"]
+        if server_name not in self.sessions:
+            raise ValueError(f"未找到指定的服务：{server_name}")
+        session = self.sessions[server_name]
+
+        tool_call_note = f"\n调用工具（服务：{server_name}）：{tool_call['name']}，参数：{tool_call['args']}\n"
         yield tool_call_note
-        # final_answer += tool_call_note
-        tool_call_result = await self.session.call_tool(
-            tool_call["name"], tool_call["args"]
-        )
+
+        tool_call_result = await session.call_tool(tool_call["name"], tool_call["args"])
         logger.info(f"Tool call result: {tool_call_result}")
-        logger.info(f"Tool call content: {tool_call_result.content}")
-        # 3. 提供上下文给llm，生成二次回答
+
         messages.append({"role": "assistant", "content": first_response.text})
         messages.append(
             {
                 "role": "user",
                 "content": str(tool_call_result.content)
-                + "上面是工具调用的结果，请你分析并生成回答",
+                + "\n上面是工具调用的结果，请你分析并生成最终回答。",
             }
         )
+
         second_response = api.completions(messages=messages, stream=True)
         second_response.encoding = "utf-8"
-        content = ""
         for line in second_response.iter_lines(decode_unicode="utf-8"):
             if "content" in line:
-                content = json.loads(line[6:])["choices"][0]["delta"]["content"]
-                yield content
-        # data = json.loads(second_response.text.strip())
-        # content = data["choices"][0]["message"]["content"]
-        # final_answer += content
-
-        # return final_answer
-
-    async def chat_loop(self):
-        """Run an interactive chat loop"""
-        print("\nMCP Client Started!")
-        print("Type your queries or 'quit' to exit.")
-
-        while True:
-            try:
-                query = input("\nQuery: ").strip()
-
-                if query.lower() == "quit":
-                    break
-
-                response = await self.process_query(query)
-                print("\n" + response)
-
-            except Exception as e:
-                print(f"\nError: {str(e)}")
-                raise
+                yield json.loads(line[6:])["choices"][0]["delta"]["content"]
 
     async def cleanup(self):
-        """Clean up resources"""
         await self.exit_stack.aclose()
-
-
-async def main():
-    client = MCPClient()
-    try:
-        server_path = sys.argv[1] if len(sys.argv) >= 2 else "server/weather.py"
-        await client.connect_to_server(server_path)
-        await client.chat_loop()
-    finally:
-        await client.cleanup()
-
-
-if __name__ == "__main__":
-    import sys
-
-    asyncio.run(main())
