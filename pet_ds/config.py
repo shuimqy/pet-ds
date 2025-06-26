@@ -12,6 +12,8 @@ class Config(BaseModel):
     mcp_server_path: str = "mcp/server/weather.py"
     # 代理
     proxy: str = "http://127.0.0.1:7890"
+    # 日志等级
+    log_level: str = "INFO"
 
 
 conf = Config()
