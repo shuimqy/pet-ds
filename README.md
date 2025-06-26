@@ -4,10 +4,10 @@
 
 _✨ MCP(提示词方式)，Qt6 ✨_
 
-</div>
-
 <img src="https://img.shields.io/badge/Python-3.10+-f09?style=flat&logo=Python&logoColor=fc5&labelColor=3776AB" alt="Python">
 <img src="https://img.shields.io/badge/Qt-6-41CD52?style=flat&logo=Qt&logoColor=fff&labelColor=41CD52" alt="Qt">
+
+</div>
 
 ## 特性
 
@@ -69,11 +69,11 @@ class Config(BaseModel):
     # LLM 密钥
     api_key: str = ""
     # LLM url
-    llm_url: str = "https://openrouter.ai/api/v1/chat/completions"
+    llm_url: str = "https://api.siliconflow.cn/v1/chat/completions"
     # 模型
-    model: str = "deepseek/deepseek-chat-v3-0324:free"
+    model: str = "THUDM/GLM-4-9B-0414"
     # mcp server 路径
-    mcp_server_path: str = "path/to/mcp/server/server.py"
+    mcp_server_path: str = "mcp/server/weather.py"
     # 代理
     proxy: str = "http://127.0.0.1:7890"
 ```

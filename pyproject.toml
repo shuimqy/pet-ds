@@ -3,7 +3,8 @@ name = "pet-ds"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "llglh",email = "2633830336@qq.com"}
+    { name = "llglh", email = "2633830336@qq.com" },
+    { name = "tomorinao-www", email = "1520872279@qq.com" }
 ]
 license = {text = "MIT"}
 readme = "README.md"
