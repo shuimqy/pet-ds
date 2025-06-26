@@ -37,6 +37,7 @@ from transitions import State, Machine
 
 # 导入设置界面
 from settings import Ui_Form
+from log import logger
 
 # 修改程序当前运行目录为 main.py 所在文件夹
 os.chdir(os.path.dirname(__file__))
@@ -159,7 +160,7 @@ class ChatBubble(QLabel):
             self.setText("")
         tmp = self.text() + new_text
         self.setText(tmp)
-        print("调用文本追加")
+        logger.info("调用文本追加")
         self.adjustSize()
         self.move(AccPetPos(self.pet_pos, self))
         # self.timer.singleShot(10000, self.fade_out)
@@ -262,7 +263,7 @@ class Pet(QLabel):
     def _handle_message(self, msg: str, mcp_isChecked: bool):
         """非阻塞处理消息"""
         self.reset_state_timer()
-        print(f"收到消息: {msg}")
+        logger.info(f"收到消息: {msg}")
 
         # 显示加载动画
         self._show_loading()
@@ -327,11 +328,11 @@ class Pet(QLabel):
         self.machine.add_transition(trigger="to_busy", source="free", dest="busy")
 
     def _on_enter_busy(self):
-        print("进入忙碌状态")
+        logger.info("进入忙碌状态")
         # 可以在这里停止空闲动画
 
     def _on_enter_free(self):
-        print("进入空闲状态")
+        logger.info("进入空闲状态")
         # 可以在这里启动自动行为
 
     # ==================== 右键菜单逻辑 ====================
@@ -383,7 +384,7 @@ class Pet(QLabel):
     def on_show_info(self):
         """显示关于信息"""
         self.reset_state_timer()
-        print("这是一个桌面宠物程序")
+        logger.info("这是一个桌面宠物程序")
 
     def on_set(self):
         self.father.show_set_ui()
@@ -459,7 +460,7 @@ class AIWorker(QRunnable):
             # self.signals.finished.emit(result)
         except Exception:
             # self.signals.error.emit(f"AI 处理失败: {str(e)}")
-            print("回答失败")
+            logger.warning("回答失败")
 
 
 class ChatDialog(QDialog):

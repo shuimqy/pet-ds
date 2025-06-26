@@ -9,7 +9,8 @@ from mcp.client.stdio import stdio_client
 
 from anthropic import Anthropic
 
-from pet_ds import api
+import api
+from log import logger
 
 
 class MCPClient:
@@ -48,7 +49,9 @@ class MCPClient:
         # List available tools
         response = await self.session.list_tools()
         tools = response.tools
-        print("\nConnected to server with tools:", [tool.name for tool in tools])
+        logger.info(
+            "已连接到 MCP 服务，工具列表：" + str([tool.name for tool in tools])
+        )
 
     async def get_tools_prompt(self) -> str:
         response = await self.session.list_tools()
@@ -67,11 +70,9 @@ class MCPClient:
             + "当前可用的工具列表：\n"
             + json.dumps(available_tools)
             + """\n上面是一个工具列表，可以被调用，其中name表示工具名称，description是工具的功能描述，input_schema是调用工具需要传递的参数。
-请你分析哪些工具对当前回答有帮助，如果要调用工具，请先分析解决问题的步骤，最后在 **最后一行** 用json格式写出工具名称和传递参数，示例如下（请注意其中“(回答内容)”代表你回答的正文，不要输出“(回答内容)”这几个字符）：
-(回答内容)
+请你分析哪些工具对当前回答有帮助，如果要调用工具，请先分析解决问题的步骤，最后在 **最后一行** 用json格式写出工具名称和传递参数，示例如下：
 {"name":"tool_name","args":{"arg_name1":"arg_value1","arg_name12":"arg_value2"}}
 如果你认为不需要调用工具或者没有工具能帮助到当前对话，请在 **最后一行** 写出"not"，如下：
-(回答内容)
 not
 请遵循以上要求，回答用户问题：
 """
@@ -92,7 +93,7 @@ not
 
         def extract_answer(raw_text: str) -> tuple[str, str]:
             data = json.loads(raw_text.strip())
-            print(data)
+            logger.debug(data)
             content = data["choices"][0]["message"]["content"]
             tool_call_line = content.strip().split("\n")[-1]  # 最后一行
             final_answer = content[: -len(tool_call_line)]  # 去除最后一行
@@ -113,8 +114,8 @@ not
         tool_call_result = await self.session.call_tool(
             tool_call["name"], tool_call["args"]
         )
-        print(tool_call_result)
-        print(tool_call_result.content)
+        logger.info(f"Tool call result: {tool_call_result}")
+        logger.info(f"Tool call content: {tool_call_result.content}")
         # 3. 提供上下文给llm，生成二次回答
         messages.append({"role": "assistant", "content": first_response.text})
         messages.append(

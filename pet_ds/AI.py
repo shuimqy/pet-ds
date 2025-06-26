@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QWidget
 import api
 from pet_ds.config import conf
 from pet_ds.mcp.client import MCPClient
+from log import logger
 
 
 class Msg_signal(QWidget):
@@ -32,14 +33,14 @@ class QA:
                 await asyncio.sleep(0.1)
             self.msg_signal.finished_msg.emit()
         except Exception as e:
-            print(e)
+            logger.error(e)
             raise
         finally:
             await client.cleanup()
 
     # 流式响应解析示例
     def answer(self, query, mcp_isChecked: bool):
-        print(f"位于AI.py QA类 Answer方法中的mcp_isChecked变量的值为: {mcp_isChecked}")
+        logger.debug(f"{mcp_isChecked: =}")
         if mcp_isChecked:
             asyncio.run(self.mcp_answer(query))
             # self.msg_signal.ready_send.emit()
