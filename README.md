@@ -133,7 +133,7 @@ sequenceDiagram
 ## TODO
 
 - [ ] 多 live2d 形象切换
-- [ ] 多 MCP 服务连接
+- [x] 多 MCP 服务连接
 - [ ] 命令执行许可按钮
 - [ ] 语音输入
 - [ ] 语音输出
