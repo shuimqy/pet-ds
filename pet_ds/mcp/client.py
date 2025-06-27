@@ -83,8 +83,10 @@ class MCPClient:
         final_answer, tool_call_line = extract_answer(first_response.text)
         logger.info(f"{final_answer = }")
         logger.info(f"{tool_call_line = }")
-        for c in final_answer:
-            yield c
+        segment_length = 9
+        for i in range(len(final_answer) // segment_length + 1):
+            segment = final_answer[i * segment_length : (i + 1) * segment_length]
+            yield segment
 
         if tool_call_line == "not":
             return
